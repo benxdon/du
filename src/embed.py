@@ -21,10 +21,11 @@ else:
 
         collection.add(
             ids = [str(uuid.uuid4()) for _ in batch],
-            documents = [e.body for e in batch],
+            documents = [f"Subject: {e.subject}\n\n {e.body}" for e in batch],
             metadatas = [{
                 "from"      : e.from_address,
                 "to"        : e.to_address,
+                "subject"   : e.subject,
                 "reply_to"  : e.reply_to,
                 "date"      : datetime.isoformat(e.date) if e.date else ""
             }

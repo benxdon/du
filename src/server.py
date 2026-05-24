@@ -33,9 +33,11 @@ def search_emails(query:str, n_results:int=5) -> str:
         meta = metas[i]
         from_address = meta["from"]
         to_address = meta["to"]
+        subject = meta["subject"]
         content = [
             f"From: {from_address}\n",
             f"To: {to_address}\n",
+            f"Subject: {subject}\n",
             f"Body: {doc}"
         ]
         string = ''.join(content)
@@ -66,9 +68,11 @@ def get_recent_emails(days:int = 1) -> str:
         meta = metas[i]
         from_address = meta["from"]
         to_address = meta["to"]
+        subject = meta["subject"]
         content = [
             f"From: {from_address}\n",
             f"To: {to_address}\n",
+            f"Subject: {subject}\n",
             f"Body: {doc}"
         ]
         string = ''.join(content)

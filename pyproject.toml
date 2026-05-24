@@ -8,8 +8,14 @@ dependencies = [
     "anthropic>=0.97.0",
     "beautifulsoup4>=4.14.3",
     "chromadb>=1.5.8",
+    "fastapi>=0.136.1",
+    "google-api-python-client>=2.196.0",
+    "google-auth>=2.53.0",
+    "google-auth-oauthlib>=1.4.0",
+    "google-cloud-pubsub>=2.38.0",
     "mcp>=1.27.0",
     "sentence-transformers>=5.4.1",
+    "uvicorn>=0.46.0",
 ]
 
 [dependency-groups]

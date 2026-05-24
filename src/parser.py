@@ -12,6 +12,7 @@ import json
 class Email:
     from_address: str=""
     to_address: str=""
+    subject: str=""
     body: str=""
     reply_to: str=""
     date: datetime|None = None
@@ -31,6 +32,7 @@ def save_emails(emails,path="data/parsed.json"):
         d = {
             "from"      : email.from_address or "",
             "to"        : email.to_address or "",
+            "subject"   : email.subject or "",
             "body"      : email.body or "",
             "reply_to"  : email.reply_to or "",
             "date"      : email.date.isoformat() if email.date else None
@@ -57,6 +59,7 @@ def load_emails(path="data/parsed.json"):
             Email(
                 from_address = d["from"],
                 to_address   = d["to"],
+                subject      = d["subject"],
                 body         = d["body"],
                 reply_to     = d["reply_to"],
                 date         = datetime.fromisoformat(d["date"]) if d["date"] else None
@@ -104,7 +107,12 @@ if __name__ == "__main__":
         emails = load_emails()
 
     else:
-        msgs = mailbox.mbox(path="data/inbox.mbox", factory=lambda f: BytesParser(policy=policy.default).parse(f))
+        msgs = []
+        with os.scandir("data/") as d: 
+            for e in d:
+                if e.name.endswith(".mbox"):
+                    mbox = mailbox.mbox(path=e.path, factory=lambda f: BytesParser(policy=policy.default).parse(f))
+                    msgs.extend(mbox)
 
         emails = []
 
@@ -119,6 +127,7 @@ if __name__ == "__main__":
                     Email(
                         from_address = msg["From"],
                         to_address   = msg["To"],
+                        subject      = msg["Subject"],
                         body         = read_body(msg),
                         reply_to     = msg["In-Reply-To"],
                         date         = date
