@@ -5,7 +5,7 @@ import pickle
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-def get_creds(token_path='token_pickle'):
+def get_creds(token_path='creds/token_pickle'):
     creds = None
     if os.path.exists(token_path):
         with open(token_path, 'rb') as f:
@@ -14,7 +14,7 @@ def get_creds(token_path='token_pickle'):
         if creds and creds.expired and creds.refresh_token: 
             creds.refresh(Request())
         else: 
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file('creds/credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
         with open(token_path, 'wb') as f: 
             pickle.dump(creds, f)
@@ -22,6 +22,6 @@ def get_creds(token_path='token_pickle'):
     return creds
 
 if __name__ == "__main__":
-    get_creds(token_path='token_pickle')
-    get_creds(token_path='token_pickle_2')
+    get_creds(token_path='creds/token_pickle')
+    get_creds(token_path='creds/token_pickle_2')
     print("Auth successful")

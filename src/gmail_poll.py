@@ -112,6 +112,6 @@ if __name__ == "__main__":
     client = chromadb.PersistentClient(path='data/chroma')
     collection = client.get_collection('emails')
     print(f"Emails before adding: {collection.count()}")
-    polls(token_path='token_pickle',last_poll_file='data/last_poll.txt')
-    polls(token_path='token_pickle_2',last_poll_file='data/last_poll_2.txt')
+    polls(token_path='creds/token_pickle',last_poll_file='data/last_poll.txt')
+    polls(token_path='creds/token_pickle_2',last_poll_file='data/last_poll_2.txt')
     print(f"Total: {collection.count()}")
