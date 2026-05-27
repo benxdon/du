@@ -12,13 +12,13 @@ collection = chroma_client.get_or_create_collection(name='emails')
 
 last_poll_file = "data/last_poll.txt"
 
-def get_last_poll(path=last_poll_file):
+def get_last_poll(path):
     if os.path.exists(path):
         with open(path) as f:
             return f.read().strip()
     return None
 
-def save_last_poll(path=last_poll_file):
+def save_last_poll(path):
     with open(path, 'w') as f:
         f.write(datetime.now().isoformat())
 
@@ -41,11 +41,11 @@ def get_body(payload):
 
     return ''
 
-def polls():
-    creds = get_creds()
+def polls(token_path, last_poll_file='data/last_poll.txt'):
+    creds = get_creds(token_path)
     service = build('gmail', 'v1', credentials=creds)
 
-    last = get_last_poll()
+    last = get_last_poll(last_poll_file)
     query = f"after:{last}" if last else ""
 
     results = service.users().messages().list(userId='me',q=query).execute()
@@ -64,7 +64,7 @@ def polls():
 
         collection.add(
             ids = [str(uuid.uuid4())],
-            documents = [f"Subject: {subject}\n\n {body}"],
+            documents = [f"Subject: {subject}\n\n{body}"],
             metadatas = [{
                 "from"      : from_address,
                 "to"        : to_address,
@@ -74,8 +74,10 @@ def polls():
                 }]
         )
 
+    save_last_poll(last_poll_file)
+
 """
-headers for each email to extract information
+sample headers for each email to extract information
 
 Delivered-To
 Received
@@ -107,4 +109,9 @@ X-Entity-ID
 """
 
 if __name__ == "__main__":
-    polls()
+    client = chromadb.PersistentClient(path='data/chroma')
+    collection = client.get_collection('emails')
+    print(f"Emails before adding: {collection.count()}")
+    polls(token_path='token_pickle',last_poll_file='data/last_poll.txt')
+    polls(token_path='token_pickle_2',last_poll_file='data/last_poll_2.txt')
+    print(f"Total: {collection.count()}")

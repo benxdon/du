@@ -22,5 +22,6 @@ def get_creds(token_path='token_pickle'):
     return creds
 
 if __name__ == "__main__":
-    get_creds()
+    get_creds(token_path='token_pickle')
+    get_creds(token_path='token_pickle_2')
     print("Auth successful")

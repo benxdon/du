@@ -81,5 +81,13 @@ def get_recent_emails(days:int = 1) -> str:
     return "\n".join(output)
 
 
+@mcp.tool()
+def sync_emails() -> str:
+    "sync new emails from gmail to chroma"
+    from gmail_poll import polls
+    polls(token_path='token_path', last_poll_file='data/last_poll.txt')
+    polls(token_path='token_path_2', last_poll_file='data/last_poll_2.txt')
+    return f"Synced. Total emails: {collection.count()}"
+
 if __name__ == "__main__":
     mcp.run(transport="stdio")
