@@ -5,18 +5,24 @@ import pickle
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-def get_creds(token_path='creds/token_pickle'):
+def get_creds(token_path='creds/token_pickle', allow_browser=True):
     creds = None
     if os.path.exists(token_path):
         with open(token_path, 'rb') as f:
             creds = pickle.load(f)
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token: 
-            creds.refresh(Request())
-        else: 
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                creds = None
+        if not creds or not creds.valid:
+            if not allow_browser:
+                raise RuntimeError(f"No creds at {token_path} and browser auth disabled.\n"
+                                   "Re-run on your laptop and copy the token over.")
             flow = InstalledAppFlow.from_client_secrets_file('creds/credentials.json', SCOPES)
             creds = flow.run_local_server(port=0)
-        with open(token_path, 'wb') as f: 
+        with open(token_path, 'wb') as f:
             pickle.dump(creds, f)
 
     return creds

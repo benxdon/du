@@ -52,7 +52,7 @@ def get_recent_emails(days:int = 1) -> str:
     """
     cutoff = (datetime.now() - timedelta(days=days)).timestamp()
     results = collection.get(
-        where={"date":{"$gte":cutoff}} # greater equal than cutoff
+        where={"date_int":{"$gte":cutoff}} # greater equal than cutoff
     )
 
     if not results["documents"]:

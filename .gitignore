@@ -12,3 +12,7 @@ data/
 *.mbox
 token_pickle
 token_pickle_2
+creds/
+
+CLAUDE.md
+graphify-out/

@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from email.utils import parsedate_to_datetime
 from gmail_auth import get_creds
 from googleapiclient.discovery import build
 import base64
@@ -20,11 +21,11 @@ def get_last_poll(path):
 
 def save_last_poll(path):
     with open(path, 'w') as f:
-        f.write(datetime.now().isoformat())
+        f.write(str(int(datetime.now().timestamp())))
 
 
 def get_body(payload):
-    if 'parts' in payload: 
+    if 'parts' in payload:
         for part in payload['parts']:
             if part['mimeType'] == 'text/plain':
                 data = part['body'].get('data','')
@@ -52,6 +53,7 @@ def polls(token_path, last_poll_file='data/last_poll.txt'):
 
     msgs = results.get('messages',[])
     print(f"Found {len(msgs)} new emails")
+
     for  msg in msgs:
         full_msg = service.users().messages().get(userId='me',id=msg['id'],format='full').execute()
         headers = full_msg['payload']['headers']
@@ -59,6 +61,10 @@ def polls(token_path, last_poll_file='data/last_poll.txt'):
         to_address = next((h['value'] for h in headers if h['name'] == 'To'), '')
         subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
         date = next((h['value'] for h in headers if h['name'] == 'Date'), '')
+        try:
+            date_int = parsedate_to_datetime(date).timestamp() if date else 0
+        except (ValueError, TypeError):
+            date_int = 0
         reply_to = next((h['value'] for h in headers if h['name'] == 'Reply-To'), '')
         body = get_body(full_msg['payload'])
 
@@ -70,7 +76,8 @@ def polls(token_path, last_poll_file='data/last_poll.txt'):
                 "to"        : to_address,
                 "subject"   : subject,
                 "reply_to"  : reply_to,
-                "date"      : date 
+                "date"      : date,
+                "date_int"  : date_int
                 }]
         )
 
