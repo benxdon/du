@@ -1,124 +1,103 @@
-import os
-from datetime import datetime
+import imaplib
+import email
+import logging
+import config
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from gmail_auth import get_creds
-from googleapiclient.discovery import build
-import base64
-from parser import read_html
-import chromadb
-import uuid
-
-chroma_client = chromadb.PersistentClient(path='data/chroma')
-collection = chroma_client.get_or_create_collection(name='emails')
-
-last_poll_file = "data/last_poll.txt"
-
-def get_last_poll(path):
-    if os.path.exists(path):
-        with open(path) as f:
-            return f.read().strip()
-    return None
-
-def save_last_poll(path):
-    with open(path, 'w') as f:
-        f.write(str(int(datetime.now().timestamp())))
+from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 
-def get_body(payload):
-    if 'parts' in payload:
-        for part in payload['parts']:
-            if part['mimeType'] == 'text/plain':
-                data = part['body'].get('data','')
-                plain = base64.urlsafe_b64decode(data).decode('utf-8')
-                return plain
-            if part['mimeType'] == 'text/html':
-                data = part['body'].get('data','')
-                html = base64.urlsafe_b64decode(data).decode('utf-8')
-                return read_html(html)
+log = logging.getLogger(__name__)
+IMAP_SERVER = "imap.gmail.com"
+BODY_CAP = 8000
+
+def get_last_poll(last_poll_path):
+    if not last_poll_path.exists():
+        return None
+    raw = last_poll_path.read_text().strip()
+    try:
+        return int(raw)
+    except ValueError:
+        log.warning("last_poll %s is not a string (%r)", last_poll_path, raw)
+
+def save_last_poll(last_poll_path, epoch_int):
+    last_poll_path.parent.mkdir(parents=True, exist_ok=True)
+    last_poll_path.write_text(str(int(epoch_int)))
+
+def _extract_body(msg):
+    plain, html = "", ""
+    for part in msg.walk():
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+        text = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+        if part.get_content_type() == "text/plain":
+            plain += text
+        elif part.get_content_type() == "text/html":
+            html += text
+    if plain.strip():
+        return plain
+    return BeautifulSoup(html, "html.parser").get_text(" ", strip=True) if html else ""
+
+def poll(user, pw, last_poll_path):
+    collection = config.get_collection()
+    since = get_last_poll(last_poll_path)
+    run_start = int(datetime.now(timezone.utc).timestamp())
+
+    imap = imaplib.IMAP4_SSL(IMAP_SERVER)
+    imap.login(user, pw)
+    imap.select("INBOX")
+    if since:
+        since_date = datetime.fromtimestamp(since, timezone.utc).strftime("%d-%b-%Y")
+        _, msgnums = imap.search(None, f'(SINCE "{since_date}")')
     else:
-        data = payload['body'].get('data','')
-        if data:
-            return base64.urlsafe_b64decode(data).decode('utf-8')
+        _, msgnums = imap.search(None, "ALL")
+    ids = msgnums[0].split()
+    log.info("%s: %d messages", user, len(ids))
 
-    return ''
+    BATCH = 500
+    b_ids, b_docs, b_metas = [], [], []
 
-def polls(token_path, last_poll_file='data/last_poll.txt'):
-    creds = get_creds(token_path)
-    service = build('gmail', 'v1', credentials=creds)
+    def flush():
+        if b_ids:
+            collection.upsert(
+                ids=b_ids,
+                metadatas=b_metas,
+                documents=b_docs
+            )
+            b_ids.clear(), b_docs.clear(), b_metas.clear()
 
-    last = get_last_poll(last_poll_file)
-    query = f"after:{last}" if last else ""
+    for num in ids:
+        _, data = imap.fetch(num, '(RFC822)')
+        msg = email.message_from_bytes(data[0][1])
 
-    results = service.users().messages().list(userId='me',q=query).execute()
-
-    msgs = results.get('messages',[])
-    print(f"Found {len(msgs)} new emails")
-
-    for  msg in msgs:
-        full_msg = service.users().messages().get(userId='me',id=msg['id'],format='full').execute()
-        headers = full_msg['payload']['headers']
-        from_address = next((h['value'] for h in headers if h['name'] == 'From'), '')
-        to_address = next((h['value'] for h in headers if h['name'] == 'To'), '')
-        subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
-        date = next((h['value'] for h in headers if h['name'] == 'Date'), '')
+        date_str = msg.get("Date", "")
         try:
-            date_int = parsedate_to_datetime(date).timestamp() if date else 0
-        except (ValueError, TypeError):
+            date_int = int(parsedate_to_datetime(date_str).timestamp()) if date_str else 0
+        except Exception:
             date_int = 0
-        reply_to = next((h['value'] for h in headers if h['name'] == 'Reply-To'), '')
-        body = get_body(full_msg['payload'])
 
-        collection.add(
-            ids = [str(uuid.uuid4())],
-            documents = [f"Subject: {subject}\n\n{body}"],
-            metadatas = [{
-                "from"      : from_address,
-                "to"        : to_address,
-                "subject"   : subject,
-                "reply_to"  : reply_to,
-                "date"      : date,
-                "date_int"  : date_int
-                }]
+        msg_id = msg.get("Message-ID")
+        body = _extract_body(msg)[:BODY_CAP]
+
+        collection.upsert(
+            ids = [msg_id],
+            documents=[body],
+            metadatas=[{
+                "from": msg.get("From", ""),
+                "subject": msg.get("Subject", ""),
+                "date": date_str,
+                "date_int": date_int
+            }]
         )
-
-    save_last_poll(last_poll_file)
-
-"""
-sample headers for each email to extract information
-
-Delivered-To
-Received
-X-Received
-ARC-Seal
-ARC-Message-Signature
-ARC-Authentication-Results
-Return-Path
-Received
-Received-SPF
-Authentication-Results
-DKIM-Signature
-DKIM-Signature
-Received
-Received
-Content-Type
-Date
-From
-Mime-Version
-Message-ID
-Subject
-Reply-To
-List-Unsubscribe
-List-Unsubscribe-Post
-X-SG-EID
-X-SG-ID
-To
-X-Entity-ID
-"""
+    imap.close()
+    imap.logout()
+    save_last_poll(last_poll_path, run_start)
+    return len(ids)
 
 if __name__ == "__main__":
-    client = chromadb.PersistentClient(path='data/chroma')
-    collection = client.get_collection('emails')
-    print(f"Emails before adding: {collection.count()}")
-    polls(token_path='creds/token_pickle',last_poll_file='data/last_poll.txt')
-    polls(token_path='creds/token_pickle_2',last_poll_file='data/last_poll_2.txt')
-    print(f"Total: {collection.count()}")
+    logging.basicConfig(level=logging.INFO)
+    for user, pw, last_poll_path in config.ACCOUNTS:
+        n = poll(user, pw, last_poll_path)
+        print(f"{user}: {n} messages")

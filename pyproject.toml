@@ -12,10 +12,8 @@ dependencies = [
     "google-api-python-client>=2.196.0",
     "google-auth>=2.53.0",
     "google-auth-oauthlib>=1.4.0",
-    "google-cloud-pubsub>=2.38.0",
-    "mcp>=1.27.0",
-    "sentence-transformers>=5.4.1",
-    "uvicorn>=0.46.0",
+    "python-dotenv>=1.2.2",
+    "tqdm>=4.67.3",
 ]
 
 [dependency-groups]
