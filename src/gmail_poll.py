@@ -66,9 +66,11 @@ def poll(user, pw, last_poll_path):
                 metadatas=b_metas,
                 documents=b_docs
             )
-            b_ids.clear(), b_docs.clear(), b_metas.clear()
+            b_ids.clear()
+            b_docs.clear()
+            b_metas.clear()
 
-    for num in ids:
+    for num in tqdm(ids, desc=user, unit="msg"):
         _, data = imap.fetch(num, '(RFC822)')
         msg = email.message_from_bytes(data[0][1])
 
@@ -91,6 +93,10 @@ def poll(user, pw, last_poll_path):
                 "date_int": date_int
             }]
         )
+        if len(b_ids) >= BATCH:
+            flush()
+
+    flush()
     imap.close()
     imap.logout()
     save_last_poll(last_poll_path, run_start)
