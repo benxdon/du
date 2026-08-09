@@ -6,6 +6,16 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from bs4 import BeautifulSoup
 from tqdm import tqdm
+from email.header import decode_header, make_header
+
+
+def _decode(value):
+    if not value:
+        return ""
+    try:
+        return str(make_header(decode_header(value)))
+    except Exception:
+        return str(value)
 
 
 log = logging.getLogger(__name__)
@@ -88,8 +98,8 @@ def poll(user, pw, last_poll_path):
             ids = [msg_id],
             documents=[body],
             metadatas=[{
-                "from": msg.get("From", ""),
-                "subject": msg.get("Subject", ""),
+                "from": _decode(msg.get("From", "")),
+                "subject": _decode(msg.get("Subject", "")),
                 "date": date_str,
                 "date_int": date_int
             }]
