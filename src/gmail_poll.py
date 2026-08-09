@@ -52,8 +52,8 @@ def _extract_body(msg):
 
 def poll(user, pw, last_poll_path):
     collection = config.get_collection()
-    since = get_last_poll(last_poll_path)
-    # since = int(datetime.now(timezone.utc).timestamp()) - 86400
+    # since = get_last_poll(last_poll_path)
+    since = int(datetime.now(timezone.utc).timestamp()) - 86400
     run_start = int(datetime.now(timezone.utc).timestamp())
 
     imap = imaplib.IMAP4_SSL(IMAP_SERVER)
